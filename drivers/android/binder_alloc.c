@@ -25,7 +25,6 @@
 #include <linux/sizes.h>
 #include "binder_alloc.h"
 #include "binder_trace.h"
-#include <trace/hooks/binder.h>
 
 struct list_lru binder_alloc_lru;
 
@@ -213,7 +212,7 @@ static int binder_update_page_range(struct binder_alloc *alloc, int allocate,
 		mm = alloc->vma_vm_mm;
 
 	if (mm) {
-		mmap_write_lock(mm);
+		down_read(&mm->mmap_sem);
 		vma = alloc->vma;
 	}
 
@@ -271,7 +270,7 @@ static int binder_update_page_range(struct binder_alloc *alloc, int allocate,
 		trace_binder_alloc_page_end(alloc, index);
 	}
 	if (mm) {
-		mmap_write_unlock(mm);
+		up_read(&mm->mmap_sem);
 		mmput(mm);
 	}
 	return 0;
@@ -304,7 +303,7 @@ err_page_ptr_cleared:
 	}
 err_no_vma:
 	if (mm) {
-		mmap_write_unlock(mm);
+		up_read(&mm->mmap_sem);
 		mmput(mm);
 	}
 	return vma ? -ENOMEM : -ESRCH;
@@ -1011,7 +1010,7 @@ enum lru_status binder_alloc_free_page(struct list_head *item,
 	mm = alloc->vma_vm_mm;
 	if (!mmget_not_zero(mm))
 		goto err_mmget;
-	if (!mmap_read_trylock(mm))
+	if (!down_read_trylock(&mm->mmap_sem))
 		goto err_mmap_read_lock_failed;
 	vma = binder_alloc_get_vma(alloc);
 
@@ -1025,7 +1024,7 @@ enum lru_status binder_alloc_free_page(struct list_head *item,
 
 		trace_binder_unmap_user_end(alloc, index);
 	}
-	mmap_read_unlock(mm);
+	up_read(&mm->mmap_sem);
 	mmput_async(mm);
 
 	trace_binder_unmap_kernel_start(alloc, index);
