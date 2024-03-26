@@ -70,9 +70,7 @@ struct binderfs_info {
 	kgid_t root_gid;
 	struct binderfs_mount_opts mount_opts;
 	int device_count;
-#ifdef CONFIG_ANDROID_BINDER_LOGS
 	struct dentry *proc_log_dir;
-#endif
 };
 
 extern const struct file_operations binder_fops;
@@ -109,18 +107,6 @@ static inline int __init init_binderfs(void)
 }
 #endif
 
-enum binder_stat_types {
-	BINDER_STAT_PROC,
-	BINDER_STAT_THREAD,
-	BINDER_STAT_NODE,
-	BINDER_STAT_REF,
-	BINDER_STAT_DEATH,
-	BINDER_STAT_TRANSACTION,
-	BINDER_STAT_TRANSACTION_COMPLETE,
-	BINDER_STAT_COUNT
-};
-
-#ifdef CONFIG_ANDROID_BINDER_LOGS
 struct binder_debugfs_entry {
 	const char *name;
 	umode_t mode;
@@ -135,13 +121,23 @@ extern const struct binder_debugfs_entry binder_debugfs_entries[];
 	     (entry)->name;			\
 	     (entry)++)
 
+enum binder_stat_types {
+	BINDER_STAT_PROC,
+	BINDER_STAT_THREAD,
+	BINDER_STAT_NODE,
+	BINDER_STAT_REF,
+	BINDER_STAT_DEATH,
+	BINDER_STAT_TRANSACTION,
+	BINDER_STAT_TRANSACTION_COMPLETE,
+	BINDER_STAT_COUNT
+};
+
 struct binder_stats {
 	atomic_t br[_IOC_NR(BR_ONEWAY_SPAM_SUSPECT) + 1];
 	atomic_t bc[_IOC_NR(BC_REPLY_SG) + 1];
 	atomic_t obj_created[BINDER_STAT_COUNT];
 	atomic_t obj_deleted[BINDER_STAT_COUNT];
 };
-#endif
 
 /**
  * struct binder_work - work enqueued on a worklist
@@ -449,9 +445,7 @@ struct binder_proc {
 	wait_queue_head_t freeze_wait;
 
 	struct list_head todo;
-#ifdef CONFIG_ANDROID_BINDER_LOGS
 	struct binder_stats stats;
-#endif
 	struct list_head delivered_death;
 	int max_threads;
 	int requested_threads;
@@ -466,66 +460,6 @@ struct binder_proc {
 	struct dentry *binderfs_entry;
 	bool oneway_spam_detection_enabled;
 };
-
-struct binder_proc_wrap {
-	struct binder_proc proc;
-	spinlock_t lock;
-};
-
-static inline struct binder_proc *
-binder_proc_entry(struct binder_alloc *alloc)
-{
-	return container_of(alloc, struct binder_proc, alloc);
-}
-
-static inline struct binder_proc_wrap *
-binder_proc_wrap_entry(struct binder_proc *proc)
-{
-	return container_of(proc, struct binder_proc_wrap, proc);
-}
-
-static inline struct binder_proc_wrap *
-binder_alloc_to_proc_wrap(struct binder_alloc *alloc)
-{
-	return binder_proc_wrap_entry(binder_proc_entry(alloc));
-}
-
-static inline void binder_alloc_lock_init(struct binder_alloc *alloc)
-{
-	spin_lock_init(&binder_alloc_to_proc_wrap(alloc)->lock);
-}
-
-static inline void binder_alloc_lock(struct binder_alloc *alloc)
-{
-	spin_lock(&binder_alloc_to_proc_wrap(alloc)->lock);
-}
-
-static inline void binder_alloc_unlock(struct binder_alloc *alloc)
-{
-	spin_unlock(&binder_alloc_to_proc_wrap(alloc)->lock);
-}
-
-static inline int binder_alloc_trylock(struct binder_alloc *alloc)
-{
-	return spin_trylock(&binder_alloc_to_proc_wrap(alloc)->lock);
-}
-
-/**
- * binder_alloc_get_free_async_space() - get free space available for async
- * @alloc:	binder_alloc for this proc
- *
- * Return:	the bytes remaining in the address-space for async transactions
- */
-static inline size_t
-binder_alloc_get_free_async_space(struct binder_alloc *alloc)
-{
-	size_t free_async_space;
-
-	binder_alloc_lock(alloc);
-	free_async_space = alloc->free_async_space;
-	binder_alloc_unlock(alloc);
-	return free_async_space;
-}
 
 /**
  * struct binder_thread - binder thread bookkeeping
@@ -583,9 +517,7 @@ struct binder_thread {
 	struct binder_error return_error;
 	struct binder_error reply_error;
 	wait_queue_head_t wait;
-#ifdef CONFIG_ANDROID_BINDER_LOGS
 	struct binder_stats stats;
-#endif
 	atomic_t tmp_ref;
 	bool is_dead;
 	struct task_struct *task;
@@ -639,6 +571,8 @@ struct binder_transaction {
 	 * during thread teardown
 	 */
 	spinlock_t lock;
+	ANDROID_VENDOR_DATA(1);
+	ANDROID_OEM_DATA_ARRAY(1, 2);
 };
 
 /**
